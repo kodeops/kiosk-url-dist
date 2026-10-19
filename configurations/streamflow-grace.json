@@ -8,11 +8,11 @@
     "DP-4"
   ],
   "flags": [],
-  "primary": "HDMI-0",
+  "primary": "HDMI-A-0",
   "screens": [
     {
       "name": "Display 1",
-      "out": "HDMI-0",
+      "out": "HDMI-A-0",
       "res": "1920x1080",
       "hz": "60",
       "rot": "normal",
