@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "browser": "google-chrome",
+  "delay": 0,
+  "disabled": [],
+  "flags": [],
+  "primary": "HDMI-A-0",
+  "screens": [
+    {
+      "name": "Display 1",
+      "out": "HDMI-A-0",
+      "res": "1920x1080",
+      "hz": "60",
+      "rot": "normal",
+      "url": "https://prado.link/rotate/aV1i7n",
+      "on": true
+    }
+  ]
+}
