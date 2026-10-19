@@ -3,7 +3,7 @@
 set -euo pipefail
 export URL_KIOSK_LAUNCHER="$(realpath -- "$0")"
 exec /usr/bin/python3 - "$@" <<'URL_KIOSK_PYTHON'
-KIOSK_VERSION = '15a9dbc68653'
+KIOSK_VERSION = 'c0dba0cc6533'
 import sys, types
 startup = types.ModuleType("url_kiosk_bootstrap")
 sys.modules[startup.__name__] = startup
