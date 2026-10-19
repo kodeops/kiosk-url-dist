@@ -9,6 +9,7 @@ Usage: bash install-kiosk-boot.sh [--kiosk-dir DIRECTORY] [path/to/boot.json]
 Run over SSH as the desktop user, without sudo. Sudo is requested once.
 Without JSON: start the launcher with remote hostname.json/local default.json selection.
 With JSON: install the explicit configuration as the fixed boot.json.
+Installs streamflow-bg.png as the LightDM GTK Greeter login background.
 Requires the dependencies listed in README.md. Does not reboot or start/stop services.
 Default layout: setup/install-kiosk-boot.sh uses ../kiosk/url-kiosk.sh.
 --kiosk-dir must point to the directory containing url-kiosk.sh itself.
@@ -42,10 +43,12 @@ fi
   echo 'Keep the dist structure (setup/ and kiosk/), or pass --kiosk-dir /path/to/kiosk.' >&2; exit 1;
 }
 kiosk_dir="$(cd -- "$kiosk_dir" && pwd -P)"
+[[ -r "$kiosk_dir/streamflow-bg.png" ]] || { echo "Missing wallpaper: $kiosk_dir/streamflow-bg.png" >&2; exit 1; }
 user_name="$(id -un)"
 [[ "$user_name" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*\$?$ ]] || { echo 'Invalid login username.' >&2; exit 1; }
 if [[ -n "$config" && ! -f "$config" ]]; then echo "Missing configuration: $config" >&2; exit 1; fi
 [[ -f /usr/share/xsessions/openbox.desktop ]] || { echo 'Openbox is missing. Run the single dependency installation command in README.md.' >&2; exit 1; }
+[[ -f /usr/share/xgreeters/lightdm-gtk-greeter.desktop ]] || { echo 'LightDM GTK Greeter is missing. Run the single dependency installation command in README.md.' >&2; exit 1; }
 for dependency in lightdm debconf-set-selections systemctl; do
   command -v "$dependency" >/dev/null || { echo "Missing dependency: $dependency. Run the installation command in README.md." >&2; exit 1; }
 done
@@ -54,13 +57,45 @@ lightdm_binary="$(command -v lightdm)"
 if [[ -n "$config" ]]; then bash "$kiosk_dir/url-kiosk.sh" "$config" --no-update --check; fi
 # Check administrator permission before modifying the user installation.
 sudo -v
+backup_suffix="$(date +%Y%m%d-%H%M%S)-$$"
+temporary="$(mktemp -d)"
+trap 'rm -rf -- "$temporary"' EXIT
+# Configure the login background before enabling automatic Openbox startup.
+greeter_config='/etc/lightdm/lightdm-gtk-greeter.conf'
+greeter_background='/usr/share/backgrounds/url-kiosk/streamflow-bg.png'
+if sudo test -f "$greeter_config"; then
+  sudo cp -p -- "$greeter_config" "$greeter_config.backup-$backup_suffix"
+  sudo cat "$greeter_config" > "$temporary/greeter.conf"
+else
+  : > "$temporary/greeter.conf"
+fi
+/usr/bin/python3 - "$temporary/greeter.conf" "$greeter_background" <<'PY'
+import configparser
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+config = configparser.ConfigParser(interpolation=None, strict=False)
+config.read(path, encoding='utf-8')
+if not config.has_section('greeter'):
+    config.add_section('greeter')
+config.set('greeter', 'background', sys.argv[2])
+config.set('greeter', 'user-background', 'false')
+with path.open('w', encoding='utf-8') as stream:
+    config.write(stream, space_around_delimiters=False)
+PY
+sudo install -d -m 755 /usr/share/backgrounds/url-kiosk /etc/lightdm
+if sudo test -f "$greeter_background"; then
+  sudo cp -p -- "$greeter_background" "$greeter_background.backup-$backup_suffix"
+fi
+sudo install -m 644 "$kiosk_dir/streamflow-bg.png" "$greeter_background"
+sudo install -m 644 "$temporary/greeter.conf" "$greeter_config"
 if [[ -n "$config" ]]; then
   bash "$kiosk_dir/url-kiosk.sh" "$config" --no-update --install-autostart
 else
   bash "$kiosk_dir/url-kiosk.sh" --no-update --install-autostart
 fi
 # Back up the selected display manager before changing the next boot.
-backup_suffix="$(date +%Y%m%d-%H%M%S)-$$"
 for path in /etc/X11/default-display-manager /etc/systemd/system/display-manager.service; do
   if sudo test -e "$path" || sudo test -L "$path"; then
     sudo cp -a -- "$path" "$path.backup-$backup_suffix"
@@ -73,8 +108,6 @@ sudo chmod 644 /etc/X11/default-display-manager
 # Enable for the next boot only. Do not start or restart the running desktop.
 sudo systemctl enable --force lightdm.service
 lightdm_config='/etc/lightdm/lightdm.conf.d/99-url-kiosk-autologin.conf'
-temporary="$(mktemp -d)"
-trap 'rm -rf -- "$temporary"' EXIT
 cat > "$temporary/autologin.conf" <<EOF
 # URL Kiosk: unattended local Openbox session.
 [Seat:*]
@@ -82,6 +115,7 @@ autologin-user=$user_name
 autologin-user-timeout=0
 autologin-session=openbox
 user-session=openbox
+greeter-session=lightdm-gtk-greeter
 EOF
 sudo install -d -m 755 /etc/lightdm/lightdm.conf.d
 if sudo test -f "$lightdm_config"; then
@@ -93,6 +127,7 @@ sudo systemctl set-default graphical.target
 echo 'Effective LightDM configuration (check for overrides):'
 sudo lightdm --show-config
 echo "Configured automatic Openbox login for: $user_name"
+echo "Configured LightDM login background: $greeter_background"
 if [[ -n "$config" ]]; then
   echo 'Openbox runs ~/.local/bin/run-kiosk.sh with the fixed ~/.config/url-kiosk/boot.json.'
 else

@@ -3,7 +3,7 @@
 set -euo pipefail
 export URL_KIOSK_LAUNCHER="$(realpath -- "$0")"
 exec /usr/bin/python3 - "$@" <<'URL_KIOSK_PYTHON'
-KIOSK_VERSION = '64967787702d'
+KIOSK_VERSION = 'b25b80ea44a6'
 import sys, types
 startup = types.ModuleType("url_kiosk_bootstrap")
 sys.modules[startup.__name__] = startup
@@ -190,6 +190,22 @@ def check_outputs(settings, outputs, applied=False):
                                    "but xrandr reports {}. Chrome was not started.".format(name, expected, actual))
 
 
+def boot_wallpaper_commands():
+    """Paint Openbox before network/configuration work; XRandR reapplies it later."""
+    return '''{
+  if [[ ! -f streamflow-bg.png ]]; then
+    echo "WARN: Startup wallpaper not found: $PWD/streamflow-bg.png"
+  elif ! command -v feh >/dev/null 2>&1; then
+    echo 'WARN: Startup wallpaper requires feh.'
+  elif feh --no-fehbg --bg-fill "$PWD/streamflow-bg.png"; then
+    echo "Startup wallpaper applied: $PWD/streamflow-bg.png"
+  else
+    echo 'WARN: Could not apply startup wallpaper; kiosk will retry after display setup.'
+  fi
+} >>kiosk-startup.log 2>&1
+'''
+
+
 def install_autostart(config, launcher):
     """Install dynamic hostname startup or an explicitly supplied fixed boot JSON."""
     home = Path.home()
@@ -201,6 +217,7 @@ def install_autostart(config, launcher):
             shutil.copyfile(wrapper, wrapper.with_name("run-kiosk.sh.backup-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")))
         wrapper.write_text('#!/usr/bin/env bash\nset -euo pipefail\n' +
                            'cd -- ' + shlex.quote(str(launcher.parent)) + '\n' +
+                           boot_wallpaper_commands() +
                            'exec /bin/bash ' + shlex.quote(str(launcher)) + ' >>kiosk-startup.log 2>&1\n')
         wrapper.chmod(0o755)
         install_openbox_entry(wrapper)
@@ -226,6 +243,7 @@ def install_autostart(config, launcher):
     wrapper.write_text('#!/usr/bin/env bash\nset -euo pipefail\n' +
                       'export URL_KIOSK_LOG_DIR=' + shlex.quote(str(Path(launcher).resolve().parent)) + '\n' +
                       'cd -- ' + shlex.quote(str(Path(launcher).resolve().parent)) + '\n' +
+                      boot_wallpaper_commands() +
                       'exec ' + shlex.join([str(destination), str(boot)]) + '\n')
     wrapper.chmod(0o755)
     install_openbox_entry(wrapper)
@@ -242,7 +260,7 @@ def install_openbox_entry(wrapper):
         shutil.copyfile(autostart, autostart.with_name("autostart.backup-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")))
     existing = re.sub(r"(?ms)^# BEGIN (?:URL|QUAD)-KIOSK\n.*?^# END (?:URL|QUAD)-KIOSK\n?", "", existing)
     command = shlex.join([str(wrapper)])
-    autostart.write_text(existing.rstrip() + "\n# BEGIN URL-KIOSK\n( sleep 3; " + command +
+    autostart.write_text(existing.rstrip() + "\n# BEGIN URL-KIOSK\n( " + command +
                          " >/dev/null 2>&1 ) &\n# END URL-KIOSK\n")
     print("Openbox autostart installed: " + str(wrapper))
 
