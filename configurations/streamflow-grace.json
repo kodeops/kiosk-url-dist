@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "browser": "google-chrome",
+  "delay": 0,
+  "disabled": [
+    "DP-0",
+    "DP-2",
+    "DP-4"
+  ],
+  "flags": [],
+  "primary": "HDMI-0",
+  "screens": [
+    {
+      "name": "Display 1",
+      "out": "HDMI-0",
+      "res": "1920x1080",
+      "hz": "60",
+      "rot": "normal",
+      "url": "https://prado.link/rotate/aV1i7n?interval=60&origin=display-1&labelFontSize=3re&syncUTC=true",
+      "on": true
+    },
+    {
+      "name": "Display 2",
+      "out": "HDP-5",
+      "res": "1920x1080",
+      "hz": "60",
+      "rot": "normal",
+      "url": "https://example.com",
+      "on": false
+    },
+    {
+      "name": "Display 3",
+      "out": "DP-1",
+      "res": "1920x1080",
+      "hz": "60",
+      "rot": "normal",
+      "url": "https://example.com",
+      "on": false
+    },
+    {
+      "name": "Display 4",
+      "out": "DP-3",
+      "res": "1920x1080",
+      "hz": "60",
+      "rot": "normal",
+      "url": "https://example.com",
+      "on": false
+    }
+  ]
+}
